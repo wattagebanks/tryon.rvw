@@ -12,6 +12,9 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
     steps:
       - uses: actions/checkout@v4
 
@@ -24,8 +27,18 @@ jobs:
         run: npm ci && npm run build
 
       - name: Deploy to Cloudflare Pages
+        id: deploy
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy frontend/dist --project-name=tryon-rvw --branch=${{ github.ref_name }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print deployment URLs
+        env:
+          URL: ${{ steps.deploy.outputs.deployment-url }}
+          ALIAS: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
+        run: |
+          echo "Deployment: $URL"
+          echo "Branch alias (previews): $ALIAS"

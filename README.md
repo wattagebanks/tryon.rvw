@@ -39,51 +39,48 @@ Uses Python + U2-Net in `backend/` (best cutouts for dev).
 
 ## Deploy (Cloudflare Pages + GitHub)
 
-Repo: **[github.com/wattagebanks/tryon.rvw](https://github.com/wattagebanks/tryon.rvw)**
+| | |
+|---|---|
+| **GitHub** | [github.com/wattagebanks/tryon.rvw](https://github.com/wattagebanks/tryon.rvw) |
+| **Pages project** | `tryon-rvw` ([dashboard](https://dash.cloudflare.com/6f4da5603c16bb38fe73935939b1a165/pages/view/tryon-rvw)) |
+| **Production URL** | [https://tryon-rvw.pages.dev](https://tryon-rvw.pages.dev) |
+| **Feature branches** | `https://<branch>.tryon-rvw.pages.dev` (slashes in branch names become hyphens) |
 
-### Option A — Connect Git in Cloudflare (recommended)
+Cloudflare Pages project names must be **lowercase letters, numbers, and dashes only** — so the deployment slug is **`tryon-rvw`** (same pattern as `archive.rvw` → `archive-rvw`). You can attach a custom domain such as **tryon.rvw** under Pages → Custom domains.
 
-Cloudflare only allows Git integration if the project is created **from Git**, not after a CLI upload.
+### Automatic deploy on push
 
-1. Open **[Create Pages project → Connect to Git](https://dash.cloudflare.com/6f4da5603c16bb38fe73935939b1a165/pages/new/connect)** (account: `averyjaffe1@gmail.com`).
-2. Authorize **GitHub** if prompted, then select **`wattagebanks/tryon.rvw`**.
-3. **Set up builds and deployments**:
+Every push runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
 
-   | Setting | Value |
-   |---------|--------|
-   | Project name | `tryon-rvw` |
-   | Production branch | `main` |
-   | Framework preset | None |
-   | Build command | `npm ci && npm run build` |
-   | Build output directory | `frontend/dist` |
-   | Root directory | `/` (repo root) |
+- **`main`** → production at `tryon-rvw.pages.dev`
+- **Any other branch** → preview at `<branch>.tryon-rvw.pages.dev`
 
-4. **Environment variables** (Settings → Variables) — add before or after first deploy:
+Repository secrets (already configured on this repo): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
 
-   | Name | Type | Value |
-   |------|------|--------|
-   | `LITELLM_API_KEY` | Secret | your LiteLLM key |
-   | `LITELLM_BASE_URL` | Plain | `https://litellm.irltechnology.com` |
-   | `LITELLM_MODEL_GPT_IMAGE` | Plain | `gpt-image-1` |
-   | `LITELLM_MODEL_DALLE3` | Plain | `dall-e-3` |
+To rotate the API token:
 
-5. Save and deploy. Pushes to `main` update production; other branches get preview URLs like `https://<branch>.tryon-rvw.pages.dev`.
+```bash
+export CLOUDFLARE_API_TOKEN='...'   # from https://dash.cloudflare.com/profile/api-tokens
+./scripts/setup-github-deploy.sh
+```
 
-**Do not** run `wrangler pages deploy` on this project if you use Git integration — Cloudflare does not allow switching from Direct Upload to Git later.
+Prefer a dedicated **API token** (not a Wrangler OAuth token) for Actions — OAuth secrets expire when you re-login to Wrangler.
 
-### Option B — GitHub Actions (if you skip dashboard Git)
+### Pages secrets (API)
 
-Add repository secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` (`6f4da5603c16bb38fe73935939b1a165`).
+```bash
+npx wrangler pages secret put LITELLM_API_KEY --project-name=tryon-rvw
+```
 
-Every push runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) and deploys with branch previews.
+Plain-text vars are in [`wrangler.jsonc`](wrangler.jsonc) (`LITELLM_BASE_URL`, model IDs).
 
-### Manual CLI deploy (Direct Upload only)
+### Manual CLI deploy
 
 ```bash
 npm run deploy
 ```
 
-Creates/recreates a **Direct Upload** project — cannot add Git integration afterward.
+Deploys the current build with Wrangler (same project as CI).
 
 ## API
 
