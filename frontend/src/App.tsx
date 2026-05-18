@@ -21,7 +21,6 @@ type Health = {
 export default function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [model, setModel] = useState<ModelChoice>("gpt-image");
-  const [bgColor, setBgColor] = useState("#ffffff");
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("");
@@ -70,7 +69,6 @@ export default function App() {
       const form = new FormData();
       form.append("file", file);
       form.append("model", model);
-      form.append("background_color", bgColor);
 
       try {
         const res = await fetch("/api/remove-background", {
@@ -95,7 +93,7 @@ export default function App() {
         setLoading(false);
       }
     },
-    [model, bgColor, resetResult, revoke],
+    [model, resetResult, revoke],
   );
 
   const onFiles = useCallback(
@@ -125,7 +123,7 @@ export default function App() {
           <span>tryon.rvw</span>
         </div>
         <p className="tagline">
-          AI background removal · opaque PNG on solid white
+          AI background removal · transparent PNG
         </p>
       </header>
 
@@ -191,24 +189,6 @@ export default function App() {
                   : ""}
               </option>
             </select>
-          </label>
-          <label className="control">
-            <span>Background</span>
-            <div className="color-row">
-              <input
-                type="color"
-                value={bgColor}
-                onChange={(e) => setBgColor(e.target.value)}
-                disabled={loading}
-              />
-              <input
-                type="text"
-                value={bgColor}
-                onChange={(e) => setBgColor(e.target.value)}
-                disabled={loading}
-                spellCheck={false}
-              />
-            </div>
           </label>
         </div>
 

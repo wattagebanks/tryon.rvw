@@ -28,6 +28,33 @@ def composite_on_background(
     return background
 
 
+def make_background_transparent(
+    image: Image.Image,
+    threshold: int = 30,
+) -> Image.Image:
+    """Turn near-white pixels transparent when the model returns a solid background."""
+    img = image.convert("RGBA")
+    pixels = img.load()
+    width, height = img.size
+
+    transparent_count = 0
+    for y in range(height):
+        for x in range(width):
+            if pixels[x, y][3] < 250:
+                transparent_count += 1
+
+    if transparent_count > (width * height) / 50:
+        return img
+
+    for y in range(height):
+        for x in range(width):
+            r, g, b, a = pixels[x, y]
+            if r >= 255 - threshold and g >= 255 - threshold and b >= 255 - threshold:
+                pixels[x, y] = (r, g, b, 0)
+
+    return img
+
+
 def image_to_png_bytes(image: Image.Image) -> bytes:
     buffer = io.BytesIO()
     image.save(buffer, format="PNG", optimize=True)

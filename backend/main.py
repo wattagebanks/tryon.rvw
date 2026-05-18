@@ -10,15 +10,14 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
-from services.image_utils import parse_hex_color
 from services.litellm_service import remove_background_litellm
 from services.rembg_service import remove_background_local
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 app = FastAPI(
-    title="BG Remove",
-    description="Remove image backgrounds and return opaque PNG cutouts on a solid background.",
+    title="tryon.rvw BG Remove",
+    description="Remove image backgrounds and return transparent PNG cutouts.",
     version="1.0.0",
 )
 
@@ -58,7 +57,6 @@ async def health():
 async def remove_background(
     file: UploadFile = File(...),
     provider: str = Form("local"),
-    background_color: str = Form("#ffffff"),
 ):
     if file.content_type and file.content_type not in ALLOWED_TYPES:
         raise HTTPException(
@@ -75,17 +73,12 @@ async def remove_background(
     if not raw:
         raise HTTPException(status_code=400, detail="Empty file.")
 
-    try:
-        bg_rgb = parse_hex_color(background_color)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
     provider = provider.strip().lower()
     try:
         if provider == "litellm":
-            result = await remove_background_litellm(raw, bg_rgb)
+            result = await remove_background_litellm(raw)
         elif provider == "local":
-            result = remove_background_local(raw, bg_rgb)
+            result = remove_background_local(raw)
         else:
             raise HTTPException(
                 status_code=400,

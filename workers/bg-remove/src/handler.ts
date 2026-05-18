@@ -14,8 +14,8 @@ export const REMOVE_BG_PROMPT =
   "Remove the entire background from this image. " +
   "Keep only the main subject with sharp, accurate edges. " +
   "Do not alter the subject's appearance, colors, or proportions. " +
-  "Place the subject on a solid pure white background (#FFFFFF). " +
-  "No transparency, no checkerboard, no gradients, no shadows on the background.";
+  "Output a PNG with a fully transparent background (alpha channel). " +
+  "No background color, no white fill, no checkerboard pattern.";
 
 export const MODEL_OPTIONS = {
   "gpt-image": {
@@ -63,20 +63,40 @@ function litellmEditsUrl(base: string): string {
     : `${trimmed}/v1/images/edits`;
 }
 
-export function parseHexColor(hex: string): [number, number, number] | null {
-  let value = hex.trim().replace(/^#/, "");
-  if (value.length === 3) {
-    value = value
-      .split("")
-      .map((c) => c + c)
-      .join("");
+const WHITE_KNOCKOUT_THRESHOLD = 30;
+
+function hasMeaningfulTransparency(data: Uint8ClampedArray): boolean {
+  let transparent = 0;
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] < 250) transparent++;
   }
-  if (!/^[0-9a-fA-F]{6}$/.test(value)) return null;
-  return [
-    parseInt(value.slice(0, 2), 16),
-    parseInt(value.slice(2, 4), 16),
-    parseInt(value.slice(4, 6), 16),
-  ];
+  return transparent > data.length / 4 / 50;
+}
+
+async function ensureTransparentPng(pngBytes: ArrayBuffer): Promise<ArrayBuffer> {
+  const blob = new Blob([pngBytes], { type: "image/png" });
+  const bitmap = await createImageBitmap(blob);
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return pngBytes;
+
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+
+  const imageData = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+  if (!hasMeaningfulTransparency(imageData.data)) {
+    const d = imageData.data;
+    const t = WHITE_KNOCKOUT_THRESHOLD;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i] >= 255 - t && d[i + 1] >= 255 - t && d[i + 2] >= 255 - t) {
+        d[i + 3] = 0;
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }
+
+  const out = await canvas.convertToBlob({ type: "image/png" });
+  return out.arrayBuffer();
 }
 
 export function resolveModel(env: Env, choice: string | null): string {
@@ -251,23 +271,6 @@ export async function handleRequest(
     return json(req, { error: "File too large (max 15MB)" }, 413);
   }
 
-  const bgRaw = form.get("background_color");
-  const bgHex = typeof bgRaw === "string" ? bgRaw : "#ffffff";
-  if (parseHexColor(bgHex) === null) {
-    return json(req, { error: `Invalid hex color: ${bgHex}` }, 400);
-  }
-
-  if (bgHex.toLowerCase() !== "#ffffff" && bgHex.toLowerCase() !== "#fff") {
-    return json(
-      req,
-      {
-        error:
-          "Custom background colors are only supported via local rembg (npm run dev:rembg). Production uses a white background.",
-      },
-      400,
-    );
-  }
-
   const modelRaw = form.get("model");
   const modelChoice =
     typeof modelRaw === "string" && modelRaw.trim() ? modelRaw.trim() : null;
@@ -275,7 +278,8 @@ export async function handleRequest(
 
   try {
     const bytes = await file.arrayBuffer();
-    const result = await callLiteLLM(env, bytes, file.type, litellmModel);
+    const raw = await callLiteLLM(env, bytes, file.type, litellmModel);
+    const result = await ensureTransparentPng(raw);
     const baseName = file.name.replace(/\.[^.]+$/, "") || "image";
     return withCors(
       req,

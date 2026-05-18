@@ -208,7 +208,7 @@
 }
 
 .preview-card.result img {
-  background: #fff;
+  background: repeating-conic-gradient(#222 0% 25%, #1a1a1a 0% 50%) 50% / 16px 16px;
 }
 
 .preview-placeholder {

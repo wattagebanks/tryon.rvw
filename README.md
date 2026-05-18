@@ -1,6 +1,6 @@
 # tryon.rvw
 
-Pixelcut-style background remover: upload an image, remove the background via your [LiteLLM](https://litellm.irltechnology.com) proxy, and download an **opaque PNG** on a solid white background (no transparency).
+Pixelcut-style background remover: upload an image, remove the background via your [LiteLLM](https://litellm.irltechnology.com) proxy, and download a **transparent PNG**.
 
 Models in the UI:
 
@@ -37,46 +37,53 @@ npm run dev:rembg
 
 Uses Python + U2-Net in `backend/` (best cutouts for dev).
 
-## Deploy (Cloudflare Pages)
+## Deploy (Cloudflare Pages + GitHub)
 
-Every push to GitHub deploys via [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
+Repo: **[github.com/wattagebanks/tryon.rvw](https://github.com/wattagebanks/tryon.rvw)**
 
-| Branch | URL |
-|--------|-----|
-| `main` | `https://tryon-rvw.pages.dev` (production) |
-| Feature branch | `https://<branch>.tryon-rvw.pages.dev` (preview) |
+### Option A — Connect Git in Cloudflare (recommended)
 
-### One-time setup
+Cloudflare only allows Git integration if the project is created **from Git**, not after a CLI upload.
 
-1. **GitHub repository secrets** (Settings → Secrets → Actions):
+1. Open **[Create Pages project → Connect to Git](https://dash.cloudflare.com/6f4da5603c16bb38fe73935939b1a165/pages/new/connect)** (account: `averyjaffe1@gmail.com`).
+2. Authorize **GitHub** if prompted, then select **`wattagebanks/tryon.rvw`**.
+3. **Set up builds and deployments**:
 
-   - `CLOUDFLARE_API_TOKEN` — API token with **Cloudflare Pages Edit** permission
-   - `CLOUDFLARE_ACCOUNT_ID` — your Cloudflare account ID
+   | Setting | Value |
+   |---------|--------|
+   | Project name | `tryon-rvw` |
+   | Production branch | `main` |
+   | Framework preset | None |
+   | Build command | `npm ci && npm run build` |
+   | Build output directory | `frontend/dist` |
+   | Root directory | `/` (repo root) |
 
-2. **Cloudflare Pages environment variables** (Workers & Pages → **tryon-rvw** → Settings → Variables):
+4. **Environment variables** (Settings → Variables) — add before or after first deploy:
 
-   | Name | Type | Example |
-   |------|------|---------|
+   | Name | Type | Value |
+   |------|------|--------|
    | `LITELLM_API_KEY` | Secret | your LiteLLM key |
    | `LITELLM_BASE_URL` | Plain | `https://litellm.irltechnology.com` |
    | `LITELLM_MODEL_GPT_IMAGE` | Plain | `gpt-image-1` |
    | `LITELLM_MODEL_DALLE3` | Plain | `dall-e-3` |
 
-   Plaintext vars are already in [`wrangler.jsonc`](wrangler.jsonc); override in the dashboard if your proxy uses different model names.
+5. Save and deploy. Pushes to `main` update production; other branches get preview URLs like `https://<branch>.tryon-rvw.pages.dev`.
 
-3. Create the Pages project (first deploy):
+**Do not** run `wrangler pages deploy` on this project if you use Git integration — Cloudflare does not allow switching from Direct Upload to Git later.
 
-   ```bash
-   npm run deploy
-   ```
+### Option B — GitHub Actions (if you skip dashboard Git)
 
-### Manual deploy
+Add repository secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` (`6f4da5603c16bb38fe73935939b1a165`).
+
+Every push runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) and deploys with branch previews.
+
+### Manual CLI deploy (Direct Upload only)
 
 ```bash
 npm run deploy
-# Preview branch:
-wrangler pages deploy frontend/dist --project-name=tryon-rvw --branch=my-feature
 ```
+
+Creates/recreates a **Direct Upload** project — cannot add Git integration afterward.
 
 ## API
 
@@ -84,7 +91,6 @@ wrangler pages deploy frontend/dist --project-name=tryon-rvw --branch=my-feature
 
 - `file` — image (multipart)
 - `model` — `gpt-image` or `dall-e-3`
-- `background_color` — hex (production: white only)
 
 `GET /api/health` — configuration status.
 

@@ -5,19 +5,22 @@ from __future__ import annotations
 import base64
 import io
 import os
-from typing import Tuple
 
 import httpx
 from PIL import Image
 
-from .image_utils import bytes_to_image, composite_on_background, image_to_png_bytes
+from .image_utils import (
+    bytes_to_image,
+    image_to_png_bytes,
+    make_background_transparent,
+)
 
 REMOVE_BG_PROMPT = (
     "Remove the entire background from this image. "
     "Keep only the main subject with sharp, accurate edges. "
     "Do not alter the subject's appearance, colors, or proportions. "
-    "Place the subject on a solid pure white background (#FFFFFF). "
-    "No transparency, no checkerboard, no gradients, no shadows on the background."
+    "Output a PNG with a fully transparent background (alpha channel). "
+    "No background color, no white fill, no checkerboard pattern."
 )
 
 
@@ -31,19 +34,16 @@ def _prepare_square_png(image_bytes: bytes, max_side: int = 1024) -> bytes:
         img = img.resize(new_size, Image.Resampling.LANCZOS)
 
     side = max(img.size)
-    canvas = Image.new("RGBA", (side, side), (255, 255, 255, 255))
+    canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
     offset = ((side - img.size[0]) // 2, (side - img.size[1]) // 2)
-    canvas.paste(img, offset, img if img.mode == "RGBA" else None)
+    canvas.paste(img, offset, img)
 
     buf = io.BytesIO()
     canvas.save(buf, format="PNG")
     return buf.getvalue()
 
 
-async def remove_background_litellm(
-    image_bytes: bytes,
-    background_rgb: Tuple[int, int, int] = (255, 255, 255),
-) -> bytes:
+async def remove_background_litellm(image_bytes: bytes) -> bytes:
     base_url = os.getenv("LITELLM_BASE_URL", "").rstrip("/")
     api_key = os.getenv("LITELLM_API_KEY", "")
     model = os.getenv("LITELLM_MODEL", "gemini/gemini-2.5-flash-image")
@@ -60,7 +60,6 @@ async def remove_background_litellm(
     )
 
     png_bytes = _prepare_square_png(image_bytes)
-    prompt = REMOVE_BG_PROMPT
 
     async with httpx.AsyncClient(timeout=120.0) as client:
         response = await client.post(
@@ -68,7 +67,7 @@ async def remove_background_litellm(
             headers={"Authorization": f"Bearer {api_key}"},
             data={
                 "model": model,
-                "prompt": prompt,
+                "prompt": REMOVE_BG_PROMPT,
                 "n": "1",
                 "size": "1024x1024",
                 "response_format": "b64_json",
@@ -93,8 +92,5 @@ async def remove_background_litellm(
     else:
         raise RuntimeError("LiteLLM response missing b64_json or url")
 
-    result = bytes_to_image(raw).convert("RGB")
-    if background_rgb != (255, 255, 255):
-        rgba = result.convert("RGBA")
-        result = composite_on_background(rgba, background_rgb)
+    result = make_background_transparent(bytes_to_image(raw))
     return image_to_png_bytes(result)
