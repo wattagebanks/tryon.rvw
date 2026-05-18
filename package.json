@@ -1,0 +1,18 @@
+{
+  "name": "tryon-rvw",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/run-dev.mjs",
+    "dev:rembg": "node scripts/run-dev-rembg.mjs",
+    "dev:worker": "wrangler dev --config workers/bg-remove/wrangler.jsonc --port 8788 --ip 127.0.0.1",
+    "build": "npm run build --prefix frontend",
+    "deploy": "npm run build && wrangler pages deploy frontend/dist --project-name=tryon-rvw",
+    "deploy:worker": "wrangler deploy --config workers/bg-remove/wrangler.jsonc"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "wrangler": "^4.92.0"
+  }
+}
