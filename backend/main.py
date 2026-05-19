@@ -1,4 +1,4 @@
-"""Background removal API — local (rembg) or LiteLLM-powered."""
+"""Background removal API — local bria-rmbg via rembg."""
 
 from __future__ import annotations
 
@@ -6,19 +6,18 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
-from services.litellm_service import remove_background_litellm
-from services.rembg_service import remove_background_local
+from services.rembg_service import MODEL, remove_background
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 app = FastAPI(
     title="tryon.rvw BG Remove",
     description="Remove image backgrounds and return transparent PNG cutouts.",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(
@@ -38,26 +37,15 @@ ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/bm
 
 @app.get("/api/health")
 async def health():
-    litellm_ready = bool(os.getenv("LITELLM_BASE_URL") and os.getenv("LITELLM_API_KEY"))
     return {
         "status": "ok",
-        "providers": {
-            "local": {"available": True, "label": "Local (rembg / U2-Net)"},
-            "litellm": {
-                "available": litellm_ready,
-                "model": os.getenv("LITELLM_MODEL", "gemini/gemini-2.5-flash-image"),
-                "label": "LiteLLM",
-            },
-        },
-        "default_provider": os.getenv("DEFAULT_PROVIDER", "local"),
+        "engine": MODEL,
+        "ready": True,
     }
 
 
 @app.post("/api/remove-background")
-async def remove_background(
-    file: UploadFile = File(...),
-    provider: str = Form("local"),
-):
+async def remove_background_route(file: UploadFile = File(...)):
     if file.content_type and file.content_type not in ALLOWED_TYPES:
         raise HTTPException(
             status_code=400,
@@ -73,19 +61,8 @@ async def remove_background(
     if not raw:
         raise HTTPException(status_code=400, detail="Empty file.")
 
-    provider = provider.strip().lower()
     try:
-        if provider == "litellm":
-            result = await remove_background_litellm(raw)
-        elif provider == "local":
-            result = remove_background_local(raw)
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="provider must be 'local' or 'litellm'",
-            )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        result = remove_background(raw)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Processing failed: {exc}") from exc
 

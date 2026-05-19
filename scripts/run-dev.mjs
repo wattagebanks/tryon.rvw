@@ -1,15 +1,20 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { getBgRemoveDevPort } from "./bg-remove-dev-port.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const port = await getBgRemoveDevPort();
-console.log(`[dev] BG Remove Worker → http://127.0.0.1:${port} (Vite proxies /api here)`);
+const uvicorn = path.join(root, "backend", ".venv", "bin", "uvicorn");
+
+await import("./free-dev-ports.mjs");
+await new Promise((r) => setTimeout(r, 400));
+
+console.log("[dev] Python API → http://127.0.0.1:8000 (bria-rmbg)");
+console.log("[dev] Vite → http://localhost:5173");
 
 const env = {
   ...process.env,
-  VITE_BG_REMOVE_PROXY_TARGET: `http://127.0.0.1:${port}`,
+  VITE_API_TARGET: "http://127.0.0.1:8000",
+  VITE_USE_PYTHON_API: "true",
 };
 
 const child = spawn(
@@ -18,13 +23,13 @@ const child = spawn(
     "concurrently",
     "-k",
     "-n",
-    "vite,bg",
+    "vite,api",
     "-c",
-    "cyan,magenta",
+    "cyan,green",
     "npm run dev --prefix frontend",
-    `wrangler dev --config workers/bg-remove/wrangler.jsonc --port ${port} --ip 127.0.0.1`,
+    `sh -c 'cd backend && ${uvicorn} main:app --reload --port 8000'`,
   ],
-  { env, stdio: "inherit", cwd: root },
+  { env, stdio: "inherit", cwd: root, shell: false },
 );
 
 child.on("exit", (code) => process.exit(code ?? 0));

@@ -1,97 +1,44 @@
-# tryon.rvw
+# tryon.rvw — Background Remover
 
-Pixelcut-style background remover: upload an image, remove the background via your [LiteLLM](https://litellm.irltechnology.com) proxy, and download a **transparent PNG**.
+Pixelcut-style background removal: upload an image, get a **transparent PNG** with real alpha (no checkerboard baked into the file — like an Apple sticker).
 
-Models in the UI:
+Uses **bria-rmbg** locally via [rembg](https://github.com/danielgatis/rembg).
 
-- **GPT Image** (`gpt-image-1` by default)
-- **DALL-E 3** (`dall-e-3` by default)
-
-Model IDs must match what your LiteLLM proxy exposes.
-
-## Local development
-
-1. Copy Worker / Pages secrets for local Wrangler:
-
-   ```bash
-   cp workers/bg-remove/.dev.vars.example workers/bg-remove/.dev.vars
-   # Edit LITELLM_API_KEY (and model names if your proxy uses different IDs)
-   ```
-
-2. Install and run (Vite + API Worker):
-
-   ```bash
-   npm install
-   npm run dev
-   ```
-
-3. Open **http://localhost:5173**
-
-Vite proxies `/api` → `http://127.0.0.1:8788` (Wrangler dev).
-
-### Local rembg (optional, no LiteLLM cost)
+## Quick start
 
 ```bash
-npm run dev:rembg
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+cd ..
+npm install
+npm run dev
 ```
 
-Uses Python + U2-Net in `backend/` (best cutouts for dev).
+Open **http://localhost:5173**, drop an image, download the cutout.
 
-## Deploy (Cloudflare Pages + GitHub)
-
-| | |
-|---|---|
-| **GitHub** | [github.com/wattagebanks/tryon.rvw](https://github.com/wattagebanks/tryon.rvw) |
-| **Pages project** | `tryon-rvw` ([dashboard](https://dash.cloudflare.com/6f4da5603c16bb38fe73935939b1a165/pages/view/tryon-rvw)) |
-| **Production URL** | [https://tryon-rvw.pages.dev](https://tryon-rvw.pages.dev) |
-| **Feature branches** | `https://<branch>.tryon-rvw.pages.dev` (slashes in branch names become hyphens) |
-
-Cloudflare Pages project names must be **lowercase letters, numbers, and dashes only** — so the deployment slug is **`tryon-rvw`** (same pattern as `archive.rvw` → `archive-rvw`). You can attach a custom domain such as **tryon.rvw** under Pages → Custom domains.
-
-### Automatic deploy on push
-
-Every push runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
-
-- **`main`** → production at `tryon-rvw.pages.dev`
-- **Any other branch** → preview at `<branch>.tryon-rvw.pages.dev`
-
-Repository secrets (already configured on this repo): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
-
-To rotate the API token:
+If `npm run dev` fails with “address already in use”, stop leftover dev servers:
 
 ```bash
-export CLOUDFLARE_API_TOKEN='...'   # from https://dash.cloudflare.com/profile/api-tokens
-./scripts/setup-github-deploy.sh
+npm run dev:stop
+npm run dev
 ```
 
-Prefer a dedicated **API token** (not a Wrangler OAuth token) for Actions — OAuth secrets expire when you re-login to Wrangler.
-
-### Pages secrets (API)
-
-```bash
-npx wrangler pages secret put LITELLM_API_KEY --project-name=tryon-rvw
-```
-
-Plain-text vars are in [`wrangler.jsonc`](wrangler.jsonc) (`LITELLM_BASE_URL`, model IDs).
-
-### Manual CLI deploy
-
-```bash
-npm run deploy
-```
-
-Deploys the current build with Wrangler (same project as CI).
+First run downloads the bria-rmbg model (~170 MB) into `~/.u2net/` — later runs are faster.
 
 ## API
 
-`POST /api/remove-background`
+`POST /api/remove-background` — multipart field `file` (JPEG, PNG, WebP, GIF, BMP; max 15 MB).
 
-- `file` — image (multipart)
-- `model` — `gpt-image` or `dall-e-3`
+Returns `image/png` with transparency.
 
-`GET /api/health` — configuration status.
+`GET /api/health` — `{ "status": "ok", "engine": "bria-rmbg", "ready": true }`
 
-## Architecture
+## Stack
 
-- **Frontend**: React + Vite → Cloudflare Pages static assets
-- **API**: Pages Functions in [`functions/api/[[path]].ts`](functions/api/[[path]].ts) (same code as [`workers/bg-remove`](workers/bg-remove) for local dev)
+- **Frontend**: React + Vite
+- **Backend**: FastAPI + rembg (`bria-rmbg`)
+
+Vite proxies `/api` → `http://127.0.0.1:8000` during `npm run dev`.

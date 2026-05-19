@@ -1,4 +1,3 @@
-from .litellm_service import remove_background_litellm
-from .rembg_service import remove_background_local
+from .rembg_service import remove_background
 
-__all__ = ["remove_background_local", "remove_background_litellm"]
+__all__ = ["remove_background"]
