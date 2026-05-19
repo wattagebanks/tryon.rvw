@@ -42,3 +42,5 @@ Returns `image/png` with transparency.
 - **Backend**: FastAPI + rembg (`bria-rmbg`)
 
 Vite proxies `/api` → `http://127.0.0.1:8000` during `npm run dev`.
+
+The Cloudflare Pages deploy serves the UI only; background removal requires the local Python API above.

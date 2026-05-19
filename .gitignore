@@ -1,7 +1,4 @@
 .env
-.dev.vars
-workers/bg-remove/.dev.vars
-.wrangler/
 .venv/
 backend/.venv/
 __pycache__/

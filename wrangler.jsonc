@@ -2,11 +2,5 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "tryon-rvw",
   "compatibility_date": "2026-05-01",
-  "pages_build_output_dir": "frontend/dist",
-  "vars": {
-    "LITELLM_BASE_URL": "https://litellm.irltechnology.com",
-    "LITELLM_MODEL": "gpt-image-1",
-    "LITELLM_MODEL_GPT_IMAGE": "gpt-image-1",
-    "LITELLM_MODEL_DALLE3": "dall-e-3"
-  }
+  "pages_build_output_dir": "frontend/dist"
 }

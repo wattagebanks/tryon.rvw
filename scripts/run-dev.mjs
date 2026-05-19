@@ -11,12 +11,6 @@ await new Promise((r) => setTimeout(r, 400));
 console.log("[dev] Python API → http://127.0.0.1:8000 (bria-rmbg)");
 console.log("[dev] Vite → http://localhost:5173");
 
-const env = {
-  ...process.env,
-  VITE_API_TARGET: "http://127.0.0.1:8000",
-  VITE_USE_PYTHON_API: "true",
-};
-
 const child = spawn(
   "npx",
   [
@@ -29,7 +23,7 @@ const child = spawn(
     "npm run dev --prefix frontend",
     `sh -c 'cd backend && ${uvicorn} main:app --reload --port 8000'`,
   ],
-  { env, stdio: "inherit", cwd: root, shell: false },
+  { stdio: "inherit", cwd: root, shell: false },
 );
 
 child.on("exit", (code) => process.exit(code ?? 0));
